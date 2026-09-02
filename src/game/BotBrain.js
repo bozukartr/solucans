@@ -9,13 +9,15 @@ import { TAU, angleDifference, clamp, randomBetween } from './math.js';
  * food ahead, bodies in the way, the arena rim and how hard the turn is, so the
  * snakes commit to lines, cut corners and hesitate the way people do.
  *
- * Three things keep them from feeling robotic:
+ * Four things keep them from feeling robotic:
  *   - a reaction delay, so a decision sticks for a moment instead of updating
  *     every frame,
  *   - a personality (greed, caution, aggression, skill, love of boosting) drawn
  *     per snake, so no two play alike,
- *   - deliberate imperfection: a slow steering drift and the occasional
- *     second-best line.
+ *   - risk appetite: a bot chasing a kill or a wreck sets part of its caution
+ *     aside, which is how most of them get themselves killed,
+ *   - deliberate imperfection: a steering drift, attention lapses, and the
+ *     occasional second-best line.
  */
 
 const DIFFICULTY_TUNING = Object.freeze({
@@ -32,6 +34,10 @@ const HEADING_OFFSETS = Object.freeze([
 
 const MIN_RAY_SAMPLES = 4;
 const MAX_RAY_SAMPLES = 9;
+
+// The collision reflex fires on a fixed cadence rather than once per frame, so
+// bots are exactly as alert on a 120Hz phone as on a struggling one.
+const REFLEX_INTERVAL = 0.05;
 
 export function createBotBrain(difficulty = 'normal') {
   const tuning = DIFFICULTY_TUNING[difficulty] ?? DIFFICULTY_TUNING.normal;
@@ -56,6 +62,9 @@ export function createBotBrain(difficulty = 'normal') {
     boostUntil: 0,
     boostCooldown: randomBetween(0.5, 4),
     panicUntil: 0,
+    reflexTimer: randomBetween(0, 0.05),
+    // How much of its caution the bot is currently setting aside.
+    risk: 1,
   };
 }
 
@@ -64,9 +73,14 @@ export function updateBot(scene, snake, delta) {
   brain.decisionTimer -= delta;
   brain.goalTimer -= delta;
   brain.boostCooldown -= delta;
+  brain.reflexTimer -= delta;
   brain.driftPhase += delta * brain.driftSpeed;
 
-  const emergency = scanEmergency(scene, snake);
+  let emergency = null;
+  if (brain.reflexTimer <= 0) {
+    brain.reflexTimer = REFLEX_INTERVAL;
+    emergency = scanEmergency(scene, snake);
+  }
   if (emergency) {
     brain.state = 'evade';
     brain.desiredAngle = emergency.angle;
@@ -94,14 +108,13 @@ export function updateBot(scene, snake, delta) {
 }
 
 /**
- * Cheap per-frame probe just in front of the head. This is the reflex that
- * fires between decisions, so a bot can still flinch away from a body that
- * suddenly crosses its path.
+ * Cheap probe just in front of the head, run on the reflex cadence. It is what
+ * lets a bot flinch away from a body that crosses its path between decisions.
  */
 function scanEmergency(scene, snake) {
   const brain = snake.brain;
   const radius = scene.snakeRadius(snake);
-  const speed = snake.boost ? GAME.boostSpeed : GAME.speed;
+  const speed = snake.boost ? scene.baseBoostSpeed() : scene.baseSpeed();
   const reach = radius * 2 + speed * (0.16 + brain.caution * 0.14);
   const cos = Math.cos(snake.angle);
   const sin = Math.sin(snake.angle);
@@ -119,7 +132,7 @@ function scanEmergency(scene, snake) {
 
   // Two probes: what the head is about to touch, and the ground it covers on
   // the way there.
-  const dangerRadius = radius * 1.7 + 24;
+  const dangerRadius = (radius * 1.7 + 24) * brain.risk;
   const probes = [
     { x: probeX, y: probeY },
     { x: snake.x + cos * reach * 0.5, y: snake.y + sin * reach * 0.5 },
@@ -170,7 +183,7 @@ function decide(scene, snake) {
 
   const radius = scene.snakeRadius(snake);
   const look = clamp(
-    radius * 6 + GAME.speed * (0.65 + brain.caution * 0.5),
+    radius * 6 + scene.baseSpeed() * (0.65 + brain.caution * 0.5),
     150,
     520,
   );
@@ -184,6 +197,14 @@ function decide(scene, snake) {
   }
 
   const goal = brain.goal;
+  brain.risk = riskAppetite(brain, goal);
+
+  // Attention wanders. The reflex still runs on its own cadence, so a lapse
+  // means a late read of the board rather than swimming in blind.
+  if (Math.random() < 0.07 * (1.35 - brain.skill)) {
+    brain.decisionTimer *= randomBetween(2.5, 5);
+  }
+
   let bestAngle = snake.angle;
   let bestScore = -Infinity;
   let secondAngle = snake.angle;
@@ -212,6 +233,16 @@ function decide(scene, snake) {
       : bestAngle;
 
   decideBoost(scene, snake, goal);
+}
+
+/**
+ * Chasing a kill or a wreck is worth taking a line you would otherwise refuse.
+ * This is where bots get themselves killed, which is the point.
+ */
+function riskAppetite(brain, goal) {
+  if (goal?.kind === 'prey') return clamp(1 - brain.aggression * 0.5, 0.4, 1);
+  if (goal?.kind === 'feast') return clamp(1 - brain.greed * 0.28, 0.55, 1);
+  return 1;
 }
 
 function scoreHeading(scene, snake, angle, offset, look, threats, goal) {
@@ -263,7 +294,8 @@ function scoreHeading(scene, snake, angle, offset, look, threats, goal) {
         threat.threat *
         150 *
         nearTermWeight *
-        (0.6 + brain.caution * 0.7);
+        (0.6 + brain.caution * 0.7) *
+        brain.risk;
     }
 
     score +=
@@ -311,7 +343,7 @@ function collectThreats(scene, snake, neighbours, range) {
 
     // The space a rival is about to occupy is as dangerous as its body, and
     // giving a bigger snake room is what keeps a small one alive.
-    const speed = other.boost ? GAME.boostSpeed : GAME.speed;
+    const speed = other.boost ? scene.baseBoostSpeed() : scene.baseSpeed();
     const outmatched = other.mass > snake.mass;
     for (const lead of [0.3, 0.65]) {
       threats.push({
@@ -446,8 +478,8 @@ function findPrey(scene, snake, neighbours) {
   if (!prey) return null;
 
   // Aim at where the target will be, not where it is: the classic cut-off.
-  const preySpeed = prey.boost ? GAME.boostSpeed : GAME.speed;
-  const lead = clamp(preyDistance / GAME.boostSpeed, 0.25, 1.2);
+  const preySpeed = prey.boost ? scene.baseBoostSpeed() : scene.baseSpeed();
+  const lead = clamp(preyDistance / scene.baseBoostSpeed(), 0.25, 1.2);
   return {
     kind: 'prey',
     prey,

@@ -88,6 +88,8 @@ export class TouchControls {
 
   handlePointerDown(event) {
     if (event.pointerType !== 'touch' || !this.isActive()) return;
+    // A tap on a HUD button belongs to that button, not to the arena.
+    if (event.target?.closest?.('[data-ui-control]')) return;
 
     const zone = this.zoneAt(event.clientX);
     if (zone === 'move') {
