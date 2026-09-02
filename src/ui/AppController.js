@@ -1,9 +1,15 @@
+import { SettingsStore } from './settingsStore.js';
+import { SettingsPanel } from './SettingsPanel.js';
+import { TouchControls } from './TouchControls.js';
+import { requestLandscape } from './orientation.js';
+
 const PLAYER_NAME_KEY = 'isikyilan.playerName';
 
 export class AppController {
   constructor() {
     this.scene = null;
     this.currentName = this.readSavedName();
+    this.settings = new SettingsStore();
 
     this.menuScreen = document.querySelector('#menu-screen');
     this.gameOverScreen = document.querySelector('#game-over-screen');
@@ -13,7 +19,14 @@ export class AppController {
     this.leaderboard = document.querySelector('#leaderboard');
     this.minimap = document.querySelector('#minimap');
     this.minimapContext = this.minimap.getContext('2d');
-    this.boostButton = document.querySelector('#boost-button');
+
+    this.settingsPanel = new SettingsPanel({ settings: this.settings });
+    this.touchControls = new TouchControls({
+      settings: this.settings,
+      onSteer: (x, y) => this.scene?.setSteerVector(x, y),
+      onBoost: (active) => this.scene?.setBoosting(active),
+      isActive: () => document.body.dataset.screen === 'playing',
+    });
 
     this.nameInput.value = this.currentName === 'Sen' ? '' : this.currentName;
     this.bindEvents();
@@ -21,6 +34,10 @@ export class AppController {
 
   connect(scene) {
     this.scene = scene;
+    scene.setDifficulty(this.settings.get('difficulty'));
+    this.settings.subscribe((values, key) => {
+      if (key === 'difficulty') this.scene?.setDifficulty(values.difficulty);
+    });
   }
 
   bindEvents() {
@@ -33,35 +50,28 @@ export class AppController {
       } catch {
         // The game can continue when storage is blocked by the device.
       }
-      this.showPlaying();
-      this.scene?.startGame(name);
+      this.nameInput.blur();
+      requestLandscape();
+      this.startRound(name);
+    });
+
+    document.querySelector('#settings-button').addEventListener('click', () => {
+      this.settingsPanel.open();
     });
 
     document.querySelector('#retry-button').addEventListener('click', () => {
-      this.showPlaying();
-      this.scene?.startGame(this.currentName);
+      this.startRound(this.currentName);
     });
 
     document.querySelector('#menu-button').addEventListener('click', () => {
       this.showMenu();
       this.scene?.showDemo();
     });
+  }
 
-    const boostOn = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.scene?.setBoosting(true);
-    };
-    const boostOff = (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      this.scene?.setBoosting(false);
-    };
-
-    this.boostButton.addEventListener('pointerdown', boostOn);
-    this.boostButton.addEventListener('pointerup', boostOff);
-    this.boostButton.addEventListener('pointercancel', boostOff);
-    this.boostButton.addEventListener('pointerleave', boostOff);
+  startRound(name) {
+    this.showPlaying();
+    this.scene?.startGame(name);
   }
 
   normalizedName(value) {
@@ -80,6 +90,8 @@ export class AppController {
     document.body.dataset.screen = 'playing';
     this.menuScreen.hidden = true;
     this.gameOverScreen.hidden = true;
+    this.settingsPanel.close();
+    this.touchControls.reset();
   }
 
   showMenu() {
@@ -87,6 +99,7 @@ export class AppController {
     this.gameOverScreen.hidden = true;
     this.menuScreen.hidden = false;
     this.nameInput.value = this.currentName === 'Sen' ? '' : this.currentName;
+    this.touchControls.reset();
   }
 
   showGameOver(result) {
@@ -96,6 +109,7 @@ export class AppController {
     document.querySelector('#final-eaten').textContent = result.eaten;
     document.querySelector('#result-message').textContent = result.message;
     this.gameOverScreen.hidden = false;
+    this.touchControls.reset();
   }
 
   updateHud({ length, leaderboard }) {

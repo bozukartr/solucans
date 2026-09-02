@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { BOT_NAMES, COLORS, GAME, PALETTE } from './config.js';
+import { BOT_NAMES, COLORS, FOOD_CELL_SIZE, GAME, PALETTE } from './config.js';
+import { createBotBrain, updateBot } from './BotBrain.js';
 import {
   TAU,
   angleDifference,
@@ -16,6 +17,10 @@ export class ArenaScene extends Phaser.Scene {
     this.ready = false;
     this.pendingAction = null;
     this.snakeId = 0;
+    this.difficulty = 'normal';
+    this.elapsed = 0;
+    this.feasts = [];
+    this.foodGrid = new Map();
   }
 
   create() {
@@ -27,10 +32,15 @@ export class ArenaScene extends Phaser.Scene {
     this.hudElapsed = 0;
     this.minimapElapsed = 0;
 
-    this.input.on('pointermove', (pointer) => this.updateAim(pointer));
+    // Touch steering comes from the on-screen joystick, so only mouse and pen
+    // pointers aim at the cursor.
+    this.input.on('pointermove', (pointer) => {
+      if (!pointer.wasTouch) this.updateAim(pointer);
+    });
     this.input.on('pointerdown', (pointer) => {
+      if (pointer.wasTouch) return;
       this.updateAim(pointer);
-      if (!pointer.wasTouch) this.boosting = true;
+      this.boosting = true;
     });
     this.input.on('pointerup', (pointer) => {
       if (!pointer.wasTouch) this.boosting = false;
@@ -72,6 +82,16 @@ export class ArenaScene extends Phaser.Scene {
     this.boosting = active;
   }
 
+  setDifficulty(difficulty) {
+    this.difficulty = difficulty;
+  }
+
+  /** Steering from the touch joystick, as a unit vector on screen. */
+  setSteerVector(x, y) {
+    this.aim.x = x * 100;
+    this.aim.y = y * 100;
+  }
+
   createWorld({ withPlayer, name = 'Sen' }) {
     this.endTimer?.remove(false);
     this.snakes?.forEach((snake) => snake.label.destroy());
@@ -79,6 +99,7 @@ export class ArenaScene extends Phaser.Scene {
     this.snakes = [];
     this.foods = [];
     this.particles = [];
+    this.feasts = [];
     this.player = null;
     this.eaten = 0;
     this.shake = 0;
@@ -146,12 +167,12 @@ export class ArenaScene extends Phaser.Scene {
       alive: true,
       path: [],
       collisionPoints: [],
-      target: null,
-      thinkTime: 0,
-      wobble: randomBetween(0, TAU),
+      brain: isPlayer ? null : createBotBrain(this.difficulty),
       dropTime: 0,
       label: null,
     };
+
+    if (snake.brain) snake.brain.desiredAngle = snake.angle;
 
     snake.targetAngle = snake.angle;
     snake.path.push({ x: snake.x, y: snake.y });
@@ -179,6 +200,7 @@ export class ArenaScene extends Phaser.Scene {
     if (!this.snakes?.length) return;
 
     const step = Math.min(0.05, delta / 1000);
+    this.elapsed += step;
     if (this.mode !== 'over') this.updateWorld(step);
     else this.updateParticles(step);
 
@@ -202,6 +224,9 @@ export class ArenaScene extends Phaser.Scene {
   }
 
   updateWorld(delta) {
+    this.buildFoodGrid();
+    this.feasts = this.feasts.filter((feast) => feast.expiresAt > this.elapsed);
+
     if (this.mode === 'playing' && this.player?.alive) {
       const aimDistance = Math.hypot(this.aim.x, this.aim.y);
       if (aimDistance > 12) {
@@ -213,7 +238,7 @@ export class ArenaScene extends Phaser.Scene {
 
     for (const snake of this.snakes) {
       if (!snake.alive) continue;
-      if (snake.bot) this.think(snake, delta);
+      if (snake.bot) updateBot(this, snake, delta);
       this.moveSnake(snake, delta);
     }
 
@@ -337,11 +362,10 @@ export class ArenaScene extends Phaser.Scene {
     const eatRadius = this.snakeRadius(snake) + 14;
     const eatRadiusSquared = eatRadius * eatRadius;
 
-    for (const food of this.foods) {
-      if (food.dead) continue;
+    this.forEachFoodNear(snake.x, snake.y, eatRadius, (food) => {
       const x = food.x - snake.x;
       const y = food.y - snake.y;
-      if (x * x + y * y >= eatRadiusSquared) continue;
+      if (x * x + y * y >= eatRadiusSquared) return;
 
       food.dead = true;
       snake.mass += food.value * 2.2;
@@ -349,80 +373,59 @@ export class ArenaScene extends Phaser.Scene {
         this.eaten += 1;
         this.createBurst(food.x, food.y, food.color, 4);
       }
+    });
+  }
+
+  /**
+   * A uniform grid over the pellets, rebuilt each frame. Eating and the bot
+   * brains both ask "what is around this point?", which would otherwise mean
+   * walking all 600-odd pellets many times per frame.
+   */
+  buildFoodGrid() {
+    this.foodGrid.clear();
+    for (const food of this.foods) {
+      if (food.dead) continue;
+      const key = this.cellKey(food.x, food.y);
+      const bucket = this.foodGrid.get(key);
+      if (bucket) bucket.push(food);
+      else this.foodGrid.set(key, [food]);
     }
   }
 
-  think(snake, delta) {
-    snake.thinkTime -= delta;
-    snake.wobble += delta * randomBetween(0.5, 2);
-    const centerDistance = Math.hypot(snake.x, snake.y);
+  cellKey(x, y) {
+    const column = Math.floor(x / FOOD_CELL_SIZE);
+    const row = Math.floor(y / FOOD_CELL_SIZE);
+    return column * 4096 + row;
+  }
 
-    if (centerDistance > GAME.arenaRadius * 0.82) {
-      snake.targetAngle =
-        Math.atan2(-snake.y, -snake.x) + Math.sin(snake.wobble) * 0.3;
-      snake.boost = false;
-      return;
-    }
+  forEachFoodNear(x, y, radius, visit) {
+    const minColumn = Math.floor((x - radius) / FOOD_CELL_SIZE);
+    const maxColumn = Math.floor((x + radius) / FOOD_CELL_SIZE);
+    const minRow = Math.floor((y - radius) / FOOD_CELL_SIZE);
+    const maxRow = Math.floor((y + radius) / FOOD_CELL_SIZE);
 
-    const radius = this.snakeRadius(snake);
-    const lookDistance = radius * 6 + 60;
-    const futureX = snake.x + Math.cos(snake.angle) * lookDistance;
-    const futureY = snake.y + Math.sin(snake.angle) * lookDistance;
-
-    for (const other of this.snakes) {
-      if (other === snake || !other.alive) continue;
-      if (
-        Math.hypot(other.x - snake.x, other.y - snake.y) >
-        this.snakeLength(other) + lookDistance + 90
-      ) {
-        continue;
-      }
-
-      for (const point of other.collisionPoints) {
-        const x = point.x - futureX;
-        const y = point.y - futureY;
-        if (x * x + y * y >= (lookDistance * 0.62) ** 2) continue;
-
-        snake.targetAngle =
-          Math.atan2(snake.y - point.y, snake.x - point.x) +
-          randomBetween(-0.25, 0.25);
-        snake.boost = snake.mass > 60;
-        return;
+    for (let column = minColumn; column <= maxColumn; column += 1) {
+      for (let row = minRow; row <= maxRow; row += 1) {
+        const bucket = this.foodGrid.get(column * 4096 + row);
+        if (!bucket) continue;
+        for (const food of bucket) {
+          if (!food.dead) visit(food);
+        }
       }
     }
+  }
 
-    if (!snake.target || snake.target.dead || snake.thinkTime <= 0) {
-      snake.thinkTime = randomBetween(0.6, 1.6);
-      let bestFood = null;
-      let bestDistance = Number.POSITIVE_INFINITY;
+  foodValueNear(x, y, radius) {
+    const radiusSquared = radius * radius;
+    let total = 0;
 
-      for (let index = 0; index < 40; index += 1) {
-        const food = this.foods[(Math.random() * this.foods.length) | 0];
-        if (!food || food.dead) continue;
-        const weightedDistance =
-          Math.hypot(food.x - snake.x, food.y - snake.y) /
-          (food.value * 0.8 + 1);
-        if (weightedDistance >= bestDistance) continue;
-        bestDistance = weightedDistance;
-        bestFood = food;
-      }
-      snake.target = bestFood;
-    }
+    this.forEachFoodNear(x, y, radius, (food) => {
+      const dx = food.x - x;
+      const dy = food.y - y;
+      if (dx * dx + dy * dy < radiusSquared) total += food.value;
+    });
 
-    if (!snake.target) {
-      snake.targetAngle = snake.angle + Math.sin(snake.wobble) * 0.4;
-      return;
-    }
-
-    snake.targetAngle =
-      Math.atan2(snake.target.y - snake.y, snake.target.x - snake.x) +
-      Math.sin(snake.wobble) * 0.12;
-    snake.boost =
-      snake.mass > 90 &&
-      Math.hypot(snake.target.x - snake.x, snake.target.y - snake.y) > 320 &&
-      Math.random() < 0.02
-        ? true
-        : snake.boost && Math.random() > 0.03;
+    return total;
   }
 
   checkCollision(snake) {
@@ -465,6 +468,14 @@ export class ArenaScene extends Phaser.Scene {
       );
     }
     this.createBurst(snake.x, snake.y, snake.color, 26);
+
+    // A wreck is a pile of free mass; the bots race each other to it.
+    this.feasts.push({
+      x: snake.x,
+      y: snake.y,
+      value: snake.mass,
+      expiresAt: this.elapsed + clamp(4 + snake.mass * 0.02, 4, 16),
+    });
 
     if (snake === this.player) {
       this.shake = 16;

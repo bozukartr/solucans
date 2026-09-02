@@ -17,19 +17,51 @@ npm run dev
 npm run build
 ```
 
+## Kontroller
+
+Masaüstünde fareyle yön verilir, sol tık veya boşluk tuşu hızlandırır.
+
+Dokunmatik cihazlarda ekran ikiye bölünür: bir yarı yön veren joystick, diğer
+yarı hızlanma alanıdır. İkisi de görünmezdir ve parmağın ekrana değdiği noktada
+belirir; joystick uzun sürüklemelerde parmağı takip eder. Ana menüdeki **Ayarlar**
+bölümünden hangi yarının yön vereceği (sol veya sağ), kontrollerin sürekli
+görünüp görünmeyeceği, titreşim ve rakip zorluğu değiştirilebilir. Tercihler
+`localStorage` içinde saklanır.
+
+Oyun geniş ekran için tasarlandı. Telefon dikey tutulduğunda çevirme uyarısı
+çıkar; oyun başlarken tarayıcı izin verirse ekran yatay konuma kilitlenir.
+Capacitor derlemelerinde kalıcı kilit için `AndroidManifest.xml` içindeki
+etkinliğe `android:screenOrientation="sensorLandscape"`, iOS tarafında ise
+`Info.plist` içine yalnızca yatay yönler eklenmelidir.
+
+## Bot davranışı
+
+Botlar her kararda önlerindeki yön yelpazesini puanlar: yoldaki yem, rakip
+gövdeleri, arena sınırı ve dönüşün maliyeti birlikte değerlendirilir. Her botun
+kendi kişiliği (açgözlülük, temkinlilik, saldırganlık, beceri, hızlanma sevgisi)
+ve tepki gecikmesi vardır; bu yüzden kararları anlık değil, kısa süre boyunca
+sabittir. Küçük bir sapma ve ara sıra ikinci en iyi çizgiyi seçme, hareketi
+insansı kılar. Ölen bir yılanın bıraktığı yığın botları oraya çeker, ama
+kalabalıklaşan yığından temkinli botlar uzak durur.
+
 ## Dosya düzeni
 
 ```text
 src/
 ├── game/
-│   ├── ArenaScene.js   # oyun döngüsü, botlar, çarpışma ve çizim
+│   ├── ArenaScene.js   # oyun döngüsü, çarpışma, yem ızgarası ve çizim
+│   ├── BotBrain.js     # bot kişilikleri ve karar verme
 │   ├── config.js       # oyun ayarları, renkler ve bot adları
 │   ├── createGame.js   # Phaser kurulumu
 │   └── math.js         # küçük matematik yardımcıları
 ├── styles/
 │   └── main.css        # menü, HUD ve mobil arayüz
 ├── ui/
-│   └── AppController.js # menü ve oyun ekranları
+│   ├── AppController.js # menü ve oyun ekranları
+│   ├── SettingsPanel.js # ayarlar ekranı
+│   ├── TouchControls.js # görünmez joystick ve hızlanma alanı
+│   ├── orientation.js   # yatay ekran kilidi
+│   └── settingsStore.js # tercihlerin saklanması
 └── main.js             # uygulama başlangıcı
 ```
 
