@@ -1,7 +1,18 @@
-import { SettingsStore } from './settingsStore.js';
+import {
+  GAME_SPEED_SCALES,
+  LEADERBOARD_ROWS,
+  SettingsStore,
+} from './settingsStore.js';
 import { SettingsPanel } from './SettingsPanel.js';
 import { TouchControls } from './TouchControls.js';
-import { requestLandscape } from './orientation.js';
+import {
+  enterFullscreen,
+  goImmersive,
+  isFullscreen,
+  isTouchDevice,
+  onFullscreenChange,
+  supportsFullscreen,
+} from './orientation.js';
 
 const PLAYER_NAME_KEY = 'isikyilan.playerName';
 
@@ -19,6 +30,7 @@ export class AppController {
     this.leaderboard = document.querySelector('#leaderboard');
     this.minimap = document.querySelector('#minimap');
     this.minimapContext = this.minimap.getContext('2d');
+    this.fullscreenPill = document.querySelector('#fullscreen-pill');
 
     this.settingsPanel = new SettingsPanel({ settings: this.settings });
     this.touchControls = new TouchControls({
@@ -30,14 +42,49 @@ export class AppController {
 
     this.nameInput.value = this.currentName === 'Sen' ? '' : this.currentName;
     this.bindEvents();
+    this.applyPresentation();
+    this.settings.subscribe(() => this.applyPresentation());
+
+    if (isTouchDevice() && !supportsFullscreen()) {
+      document.body.dataset.noFullscreen = '';
+    }
+    onFullscreenChange(() => this.updateFullscreenPill());
   }
 
   connect(scene) {
     this.scene = scene;
-    scene.setDifficulty(this.settings.get('difficulty'));
-    this.settings.subscribe((values, key) => {
-      if (key === 'difficulty') this.scene?.setDifficulty(values.difficulty);
-    });
+    this.applySceneSettings();
+    this.settings.subscribe(() => this.applySceneSettings());
+  }
+
+  /** Settings that only touch the DOM. */
+  applyPresentation() {
+    document.body.dataset.leaderboard = this.settings.get('leaderboard');
+    this.updateFullscreenPill();
+  }
+
+  /** Settings the running scene needs to know about. */
+  applySceneSettings() {
+    if (!this.scene) return;
+    this.scene.setDifficulty(this.settings.get('difficulty'));
+    this.scene.setSpeedScale(GAME_SPEED_SCALES[this.settings.get('gameSpeed')]);
+    this.scene.setLeaderboardRows(
+      LEADERBOARD_ROWS[this.settings.get('leaderboard')],
+    );
+    this.scene.setRichGraphics(this.settings.get('richGraphics'));
+  }
+
+  /**
+   * The pill is the recovery path: browsers drop out of fullscreen on their own
+   * (a swipe, a rotation), and re-entering needs a fresh user gesture.
+   */
+  updateFullscreenPill() {
+    const wanted =
+      this.settings.get('fullscreen') &&
+      isTouchDevice() &&
+      supportsFullscreen() &&
+      !isFullscreen();
+    this.fullscreenPill.hidden = !wanted;
   }
 
   bindEvents() {
@@ -51,8 +98,13 @@ export class AppController {
         // The game can continue when storage is blocked by the device.
       }
       this.nameInput.blur();
-      requestLandscape();
+      goImmersive({ fullscreen: this.settings.get('fullscreen') });
       this.startRound(name);
+    });
+
+    this.fullscreenPill.addEventListener('click', async () => {
+      await enterFullscreen();
+      this.updateFullscreenPill();
     });
 
     document.querySelector('#settings-button').addEventListener('click', () => {
@@ -60,6 +112,7 @@ export class AppController {
     });
 
     document.querySelector('#retry-button').addEventListener('click', () => {
+      goImmersive({ fullscreen: this.settings.get('fullscreen') });
       this.startRound(this.currentName);
     });
 

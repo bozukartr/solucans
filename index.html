@@ -92,6 +92,8 @@
           </header>
 
           <div class="settings-body">
+            <h3 class="settings-group">Kontroller</h3>
+
             <section class="setting-row">
               <div class="setting-text">
                 <h3>Kontrol düzeni</h3>
@@ -144,6 +146,97 @@
               </button>
             </section>
 
+            <h3 class="settings-group">Ekran</h3>
+
+            <section class="setting-row">
+              <div class="setting-text">
+                <h3>Tam ekran</h3>
+                <p>
+                  Oyun başlarken tarayıcı çubuklarını gizlemeyi dener.
+                  <span class="setting-note-ios">
+                    iPhone Safari tam ekrana izin vermez; kalıcı çözüm için
+                    Paylaş → Ana Ekrana Ekle.
+                  </span>
+                </p>
+              </div>
+              <button
+                class="switch"
+                type="button"
+                role="switch"
+                aria-checked="true"
+                data-setting-switch="fullscreen"
+              >
+                <span class="switch-track" aria-hidden="true"></span>
+              </button>
+            </section>
+
+            <section class="setting-row">
+              <div class="setting-text">
+                <h3>Sıralama tablosu</h3>
+                <p>Oyun ekranındaki sıralama kartının boyutu.</p>
+              </div>
+              <div
+                class="segmented"
+                role="radiogroup"
+                aria-label="Sıralama tablosu"
+                data-setting-group="leaderboard"
+              >
+                <button type="button" role="radio" data-value="off" aria-checked="false">
+                  Kapalı
+                </button>
+                <button type="button" role="radio" data-value="small" aria-checked="false">
+                  Küçük
+                </button>
+                <button type="button" role="radio" data-value="normal" aria-checked="true">
+                  Orta
+                </button>
+                <button type="button" role="radio" data-value="large" aria-checked="false">
+                  Büyük
+                </button>
+              </div>
+            </section>
+
+            <section class="setting-row">
+              <div class="setting-text">
+                <h3>Zengin grafikler</h3>
+                <p>Derinlik katmanları, parıltı ve gövde deseni. Yavaş cihazlarda kapat.</p>
+              </div>
+              <button
+                class="switch"
+                type="button"
+                role="switch"
+                aria-checked="true"
+                data-setting-switch="richGraphics"
+              >
+                <span class="switch-track" aria-hidden="true"></span>
+              </button>
+            </section>
+
+            <h3 class="settings-group">Oyun</h3>
+
+            <section class="setting-row">
+              <div class="setting-text">
+                <h3>Yılan hızı</h3>
+                <p>Tüm yılanların temel yüzme hızı.</p>
+              </div>
+              <div
+                class="segmented"
+                role="radiogroup"
+                aria-label="Yılan hızı"
+                data-setting-group="gameSpeed"
+              >
+                <button type="button" role="radio" data-value="calm" aria-checked="false">
+                  Yavaş
+                </button>
+                <button type="button" role="radio" data-value="normal" aria-checked="true">
+                  Normal
+                </button>
+                <button type="button" role="radio" data-value="fast" aria-checked="false">
+                  Hızlı
+                </button>
+              </div>
+            </section>
+
             <section class="setting-row">
               <div class="setting-text">
                 <h3>Rakip zorluğu</h3>
@@ -186,6 +279,17 @@
         </div>
 
         <canvas id="minimap" class="minimap" aria-label="Arena haritası"></canvas>
+
+        <button
+          class="fullscreen-pill"
+          id="fullscreen-pill"
+          type="button"
+          data-ui-control
+          hidden
+        >
+          <span aria-hidden="true">⛶</span>
+          Tam ekran
+        </button>
       </section>
 
       <div class="touch-layer" id="touch-layer" data-layout="move-left" aria-hidden="true">

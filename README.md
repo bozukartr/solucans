@@ -23,16 +23,32 @@ Masaüstünde fareyle yön verilir, sol tık veya boşluk tuşu hızlandırır.
 
 Dokunmatik cihazlarda ekran ikiye bölünür: bir yarı yön veren joystick, diğer
 yarı hızlanma alanıdır. İkisi de görünmezdir ve parmağın ekrana değdiği noktada
-belirir; joystick uzun sürüklemelerde parmağı takip eder. Ana menüdeki **Ayarlar**
-bölümünden hangi yarının yön vereceği (sol veya sağ), kontrollerin sürekli
-görünüp görünmeyeceği, titreşim ve rakip zorluğu değiştirilebilir. Tercihler
-`localStorage` içinde saklanır.
+belirir; joystick uzun sürüklemelerde parmağı takip eder.
+
+## Ayarlar
+
+Ana menüdeki **Ayarlar** bölümü üç başlıkta toplanır ve tercihler
+`localStorage` içinde saklanır:
+
+- **Kontroller** — yön veren yarı (sol/sağ), kontrollerin sürekli görünmesi,
+  titreşim
+- **Ekran** — tam ekran denemesi, sıralama tablosu boyutu (kapalı/küçük/orta/
+  büyük), zengin grafikler
+- **Oyun** — yılan hızı (yavaş/normal/hızlı), rakip zorluğu
+
+## Tam ekran ve yatay mod
 
 Oyun geniş ekran için tasarlandı. Telefon dikey tutulduğunda çevirme uyarısı
-çıkar; oyun başlarken tarayıcı izin verirse ekran yatay konuma kilitlenir.
-Capacitor derlemelerinde kalıcı kilit için `AndroidManifest.xml` içindeki
-etkinliğe `android:screenOrientation="sensorLandscape"`, iOS tarafında ise
-`Info.plist` içine yalnızca yatay yönler eklenmelidir.
+çıkar. Oyuna başlarken önce tam ekran, ardından yatay kilit istenir; kilit
+yalnızca tam ekran belgeye verildiği için sıra bu şekildedir. Tarayıcı tam
+ekrandan kendi kendine çıkarsa (kaydırma, döndürme) HUD'da bir **Tam ekran**
+düğmesi belirir, çünkü yeniden girmek için yeni bir kullanıcı hareketi gerekir.
+
+iPhone Safari öğe bazlı tam ekranı hiç desteklemez; orada ayarlar ekranı
+Paylaş → Ana Ekrana Ekle yönlendirmesini gösterir. Capacitor derlemelerinde
+kalıcı kilit için `AndroidManifest.xml` içindeki etkinliğe
+`android:screenOrientation="sensorLandscape"`, iOS tarafında ise `Info.plist`
+içine yalnızca yatay yönler eklenmelidir.
 
 ## Bot davranışı
 
@@ -40,9 +56,13 @@ Botlar her kararda önlerindeki yön yelpazesini puanlar: yoldaki yem, rakip
 gövdeleri, arena sınırı ve dönüşün maliyeti birlikte değerlendirilir. Her botun
 kendi kişiliği (açgözlülük, temkinlilik, saldırganlık, beceri, hızlanma sevgisi)
 ve tepki gecikmesi vardır; bu yüzden kararları anlık değil, kısa süre boyunca
-sabittir. Küçük bir sapma ve ara sıra ikinci en iyi çizgiyi seçme, hareketi
-insansı kılar. Ölen bir yılanın bıraktığı yığın botları oraya çeker, ama
-kalabalıklaşan yığından temkinli botlar uzak durur.
+sabittir. Küçük bir sapma, ara sıra dalan dikkat ve ikinci en iyi çizgiyi seçme
+hareketi insansı kılar. Bir av veya taze bir yığın peşindeyken temkinin bir
+kısmını bırakırlar; ölümlerin çoğu buradan gelir. Ölen yılanın bıraktığı yığın
+botları çeker, ama kalabalıklaşan yığından temkinli botlar uzak durur.
+
+Çarpışma refleksi kare başına değil sabit aralıkla (50 ms) çalışır; böylece
+botlar 120 Hz telefonda da, zorlanan bir cihazda da aynı ölçüde dikkatlidir.
 
 ## Dosya düzeni
 
@@ -50,7 +70,7 @@ kalabalıklaşan yığından temkinli botlar uzak durur.
 src/
 ├── game/
 │   ├── ArenaScene.js   # oyun döngüsü, çarpışma, yem ızgarası ve çizim
-│   ├── BotBrain.js     # bot kişilikleri ve karar verme
+│   ├── BotBrain.js     # bot kişilikleri, risk iştahı ve karar verme
 │   ├── config.js       # oyun ayarları, renkler ve bot adları
 │   ├── createGame.js   # Phaser kurulumu
 │   └── math.js         # küçük matematik yardımcıları
@@ -60,7 +80,7 @@ src/
 │   ├── AppController.js # menü ve oyun ekranları
 │   ├── SettingsPanel.js # ayarlar ekranı
 │   ├── TouchControls.js # görünmez joystick ve hızlanma alanı
-│   ├── orientation.js   # yatay ekran kilidi
+│   ├── orientation.js   # tam ekran ve yatay ekran kilidi
 │   └── settingsStore.js # tercihlerin saklanması
 └── main.js             # uygulama başlangıcı
 ```

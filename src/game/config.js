@@ -1,8 +1,8 @@
 export const GAME = Object.freeze({
   arenaRadius: 1500,
   pathDistance: 5,
-  speed: 165,
-  boostSpeed: 300,
+  speed: 128,
+  boostSpeed: 232,
   foodCount: 620,
   botCount: 14,
 });

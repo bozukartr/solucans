@@ -23,6 +23,8 @@ body,
 #game-root {
   width: 100%;
   height: 100%;
+  /* Follows the visible area as mobile browser bars slide in and out. */
+  height: 100dvh;
   margin: 0;
   overflow: hidden;
 }
@@ -306,8 +308,9 @@ body[data-screen="over"] .hud {
   position: absolute;
   top: calc(16px + env(safe-area-inset-top));
   right: calc(16px + env(safe-area-inset-right));
-  width: 184px;
+  width: var(--leaderboard-width, 184px);
   padding: 12px 13px;
+  font-size: var(--leaderboard-scale, 1rem);
   border: 1px solid rgba(79, 224, 197, 0.15);
   border-radius: 15px;
   background: rgba(3, 22, 29, 0.62);
@@ -316,9 +319,9 @@ body[data-screen="over"] .hud {
 }
 
 .leaderboard-card > p {
-  margin-bottom: 8px;
+  margin-bottom: 0.55em;
   color: var(--muted);
-  font-size: 0.68rem;
+  font-size: 0.68em;
   font-weight: 800;
   letter-spacing: 0.12em;
 }
@@ -328,14 +331,14 @@ body[data-screen="over"] .hud {
   grid-template-columns: 24px minmax(0, 1fr) auto;
   gap: 6px;
   align-items: center;
-  min-height: 23px;
+  min-height: 1.5em;
   color: #aacccd;
-  font-size: 0.78rem;
+  font-size: 0.78em;
 }
 
 .leaderboard-row .rank {
   color: #5f8a8d;
-  font-size: 0.68rem;
+  font-size: 0.86em;
 }
 
 .leaderboard-row .player {
@@ -345,12 +348,53 @@ body[data-screen="over"] .hud {
 }
 
 .leaderboard-row strong {
-  font-size: 0.75rem;
+  font-size: 0.96em;
 }
 
 .leaderboard-row.is-player {
   color: var(--glow);
   font-weight: 800;
+}
+
+body[data-leaderboard="small"] {
+  --leaderboard-width: 148px;
+  --leaderboard-scale: 0.86rem;
+}
+
+body[data-leaderboard="large"] {
+  --leaderboard-width: 232px;
+  --leaderboard-scale: 1.18rem;
+}
+
+body[data-leaderboard="off"] .leaderboard-card {
+  display: none;
+}
+
+.fullscreen-pill {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 50%;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  padding: 8px 14px;
+  border: 1px solid rgba(79, 224, 197, 0.28);
+  border-radius: 999px;
+  cursor: pointer;
+  background: rgba(3, 22, 29, 0.78);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  color: #b9d9d9;
+  font-size: 0.78rem;
+  font-weight: 800;
+  pointer-events: auto;
+  transform: translateX(-50%);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.fullscreen-pill span {
+  color: var(--glow);
+  font-size: 0.95rem;
 }
 
 .minimap {
@@ -620,6 +664,30 @@ body[data-screen="playing"] .touch-layer {
 .settings-body {
   display: grid;
   gap: 10px;
+}
+
+.settings-group {
+  margin: 8px 0 0;
+  color: var(--glow);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.settings-group:first-child {
+  margin-top: 0;
+}
+
+/* Shown only where the browser has no fullscreen API to offer. */
+.setting-note-ios {
+  display: none;
+}
+
+body[data-no-fullscreen] .setting-note-ios {
+  display: block;
+  margin-top: 4px;
+  color: #c9a06a;
 }
 
 .setting-row {
