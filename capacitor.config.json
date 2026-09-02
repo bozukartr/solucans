@@ -1,0 +1,9 @@
+{
+  "appId": "com.bozukartr.isikyilan",
+  "appName": "Işıkyılan",
+  "webDir": "dist",
+  "backgroundColor": "#03151c",
+  "server": {
+    "androidScheme": "https"
+  }
+}
