@@ -7,6 +7,9 @@
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
     <meta name="theme-color" content="#03151c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="screen-orientation" content="landscape" />
     <meta
       name="description"
       content="Işıkyılan — derin sularda büyü, rakiplerinden kaç ve zirveye çık."
@@ -21,10 +24,19 @@
 
       <main class="screen menu-screen" id="menu-screen">
         <section class="menu-card" aria-labelledby="game-title">
-          <p class="eyebrow">DERİN SU ARENASI</p>
-          <h1 id="game-title">Işık<span>yılan</span></h1>
-          <p class="menu-copy">Büyü, çevik kal ve sürünün zirvesine çık.</p>
+          <div class="menu-intro">
+            <p class="eyebrow">DERİN SU ARENASI</p>
+            <h1 id="game-title">Işık<span>yılan</span></h1>
+            <p class="menu-copy">Büyü, çevik kal ve sürünün zirvesine çık.</p>
 
+            <div class="quick-guide" aria-label="Nasıl oynanır">
+              <span><b>01</b> Yön ver</span>
+              <span><b>02</b> Işıkları topla</span>
+              <span><b>03</b> Çarpışma</span>
+            </div>
+          </div>
+
+          <div class="menu-actions">
           <form id="play-form" class="play-form">
             <label for="player-name">Oyuncu adı</label>
             <input
@@ -42,17 +54,125 @@
             </button>
           </form>
 
-          <div class="quick-guide" aria-label="Nasıl oynanır">
-            <span><b>01</b> Yön ver</span>
-            <span><b>02</b> Işıkları topla</span>
-            <span><b>03</b> Çarpışma</span>
-          </div>
+          <button class="settings-button" id="settings-button" type="button">
+            <span aria-hidden="true">⚙</span>
+            Ayarlar
+          </button>
 
           <p class="desktop-hint">
             Fareyle yön ver · Sol tık veya <kbd>boşluk</kbd> ile hızlan
           </p>
+          <p class="touch-hint">
+            Bir yarıya dokun ve sürükle · diğer yarıya bas ve hızlan
+          </p>
+          </div>
         </section>
       </main>
+
+      <section class="screen settings-screen" id="settings-screen" hidden>
+        <div
+          class="settings-card"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="settings-title"
+        >
+          <header class="settings-head">
+            <div>
+              <p class="eyebrow">TERCİHLER</p>
+              <h2 id="settings-title">Ayarlar</h2>
+            </div>
+            <button
+              class="icon-button"
+              id="settings-close"
+              type="button"
+              aria-label="Ayarları kapat"
+            >
+              ✕
+            </button>
+          </header>
+
+          <div class="settings-body">
+            <section class="setting-row">
+              <div class="setting-text">
+                <h3>Kontrol düzeni</h3>
+                <p>Joystick ve hızlanma tuşunun bulunduğu tarafı seç.</p>
+              </div>
+              <div
+                class="segmented"
+                role="radiogroup"
+                aria-label="Kontrol düzeni"
+                data-setting-group="controlLayout"
+              >
+                <button type="button" role="radio" data-value="move-left" aria-checked="true">
+                  Sol yön · Sağ hız
+                </button>
+                <button type="button" role="radio" data-value="move-right" aria-checked="false">
+                  Sağ yön · Sol hız
+                </button>
+              </div>
+            </section>
+
+            <section class="setting-row">
+              <div class="setting-text">
+                <h3>Kontrolleri her zaman göster</h3>
+                <p>Kapalıyken joystick yalnızca parmağını koyduğunda belirir.</p>
+              </div>
+              <button
+                class="switch"
+                type="button"
+                role="switch"
+                aria-checked="false"
+                data-setting-switch="visibleControls"
+              >
+                <span class="switch-track" aria-hidden="true"></span>
+              </button>
+            </section>
+
+            <section class="setting-row">
+              <div class="setting-text">
+                <h3>Titreşim</h3>
+                <p>Hızlanmaya bastığında kısa bir dokunsal geri bildirim ver.</p>
+              </div>
+              <button
+                class="switch"
+                type="button"
+                role="switch"
+                aria-checked="true"
+                data-setting-switch="haptics"
+              >
+                <span class="switch-track" aria-hidden="true"></span>
+              </button>
+            </section>
+
+            <section class="setting-row">
+              <div class="setting-text">
+                <h3>Rakip zorluğu</h3>
+                <p>Diğer yılanların ne kadar atak ve dikkatli oynadığını belirler.</p>
+              </div>
+              <div
+                class="segmented"
+                role="radiogroup"
+                aria-label="Rakip zorluğu"
+                data-setting-group="difficulty"
+              >
+                <button type="button" role="radio" data-value="easy" aria-checked="false">
+                  Sakin
+                </button>
+                <button type="button" role="radio" data-value="normal" aria-checked="true">
+                  Normal
+                </button>
+                <button type="button" role="radio" data-value="hard" aria-checked="false">
+                  Zorlu
+                </button>
+              </div>
+            </section>
+          </div>
+
+          <p class="settings-note">
+            Zorluk değişikliği bir sonraki turda geçerli olur.
+          </p>
+        </div>
+      </section>
 
       <section class="hud" id="hud" aria-label="Oyun bilgileri">
         <div class="score-card">
@@ -68,10 +188,15 @@
         <canvas id="minimap" class="minimap" aria-label="Arena haritası"></canvas>
       </section>
 
-      <button class="boost-button" id="boost-button" type="button">
-        <span aria-hidden="true">⚡</span>
-        Hızlan
-      </button>
+      <div class="touch-layer" id="touch-layer" data-layout="move-left" aria-hidden="true">
+        <div class="joystick" id="joystick">
+          <span class="joystick-ring"></span>
+          <span class="joystick-thumb" id="joystick-thumb"></span>
+        </div>
+        <div class="boost-pad" id="boost-pad">
+          <span class="boost-glyph">⚡</span>
+        </div>
+      </div>
 
       <section class="screen game-over-screen" id="game-over-screen" hidden>
         <div class="result-card" role="dialog" aria-modal="true" aria-labelledby="result-title">
@@ -92,6 +217,14 @@
           <button class="text-button" id="menu-button" type="button">Ana menü</button>
         </div>
       </section>
+
+      <div class="rotate-notice" id="rotate-notice">
+        <div class="rotate-card">
+          <span class="rotate-icon" aria-hidden="true">⟳</span>
+          <h2>Telefonu yan çevir</h2>
+          <p>Işıkyılan geniş ekran için tasarlandı.</p>
+        </div>
+      </div>
     </div>
 
     <script type="module" src="/src/main.js"></script>

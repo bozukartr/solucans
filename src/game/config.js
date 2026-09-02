@@ -7,6 +7,9 @@ export const GAME = Object.freeze({
   botCount: 14,
 });
 
+// Cell size of the pellet lookup grid used by eating and by the bot brains.
+export const FOOD_CELL_SIZE = 150;
+
 export const COLORS = Object.freeze({
   deep: 0x04161d,
   grid: 0x4fe0c5,
