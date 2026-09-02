@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Işıkyılan</title>
+<style>
+  :root{
+    --deep:#04161d;
+    --deep2:#082a35;
+    --foam:#dff6f2;
+    --muted:#7ba7ad;
+    --glow:#4fe0c5;
+    --coral:#ff7a6b;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:var(--deep);
+    font-family:ui-rounded,"Nunito","Avenir Next","Segoe UI",system-ui,sans-serif;
+    color:var(--foam);touch-action:none;overscroll-behavior:none}
+  canvas{display:block;position:fixed;inset:0}
+
+  .hud{position:fixed;inset:0;pointer-events:none;padding:calc(14px + env(safe-area-inset-top)) 16px 16px}
+  .score{position:absolute;left:18px;top:calc(16px + env(safe-area-inset-top));line-height:1}
+  .score b{display:block;font-size:34px;font-weight:800;letter-spacing:-1px;
+    text-shadow:0 0 18px rgba(79,224,197,.55)}
+  .score span{font-size:12px;color:var(--muted);letter-spacing:.4px}
+
+  .board{position:absolute;right:16px;top:calc(16px + env(safe-area-inset-top));
+    min-width:170px;font-size:13px;background:rgba(4,26,33,.55);
+    border:1px solid rgba(79,224,197,.18);border-radius:14px;padding:10px 12px;
+    backdrop-filter:blur(6px)}
+  .board h4{margin:0 0 7px;font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.6px}
+  .board .row{display:flex;justify-content:space-between;gap:10px;padding:2px 0;color:#a9cfd2}
+  .board .row.me{color:var(--glow);font-weight:800}
+  .board .row i{font-style:normal;opacity:.55;width:14px;display:inline-block}
+  .board .row em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:96px;flex:1}
+
+  #boost{position:absolute;right:26px;bottom:calc(30px + env(safe-area-inset-bottom));
+    width:96px;height:96px;border-radius:50%;pointer-events:auto;display:none;
+    border:2px solid rgba(79,224,197,.4);background:radial-gradient(circle at 50% 40%,rgba(79,224,197,.28),rgba(79,224,197,.05));
+    color:var(--foam);font:700 15px/1 inherit;letter-spacing:.3px}
+  #boost:active{background:radial-gradient(circle at 50% 40%,rgba(79,224,197,.55),rgba(79,224,197,.15))}
+  .touch #boost{display:block}
+
+  .veil{position:fixed;inset:0;display:grid;place-items:center;padding:24px;
+    background:radial-gradient(120% 90% at 50% 0%,rgba(12,64,74,.9),rgba(3,15,20,.97));
+    backdrop-filter:blur(3px);z-index:5}
+  .veil.hide{display:none}
+  .panel{width:min(420px,100%);text-align:center}
+  .title{font-size:clamp(44px,13vw,76px);font-weight:800;letter-spacing:-3px;margin:0;
+    background:linear-gradient(180deg,#eafffb,#4fe0c5 60%,#1e9fb0);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 6px 30px rgba(79,224,197,.35))}
+  .tag{margin:2px 0 26px;color:var(--muted);font-size:15px}
+  input{width:100%;padding:14px 16px;border-radius:14px;font:600 16px inherit;
+    border:1px solid rgba(79,224,197,.25);background:rgba(255,255,255,.05);color:var(--foam);outline:none}
+  input:focus{border-color:var(--glow);box-shadow:0 0 0 4px rgba(79,224,197,.12)}
+  input::placeholder{color:#5b8288}
+  button.play{margin-top:12px;width:100%;padding:16px;border:0;border-radius:14px;cursor:pointer;
+    font:800 17px inherit;color:#022;background:linear-gradient(180deg,#7dfcdd,#2fc5ab);
+    box-shadow:0 10px 30px rgba(47,197,171,.3)}
+  button.play:active{transform:translateY(1px)}
+  .keys{margin-top:22px;color:#5b8288;font-size:13px;line-height:1.7}
+  .keys kbd{background:rgba(255,255,255,.07);border-radius:6px;padding:2px 7px;font:600 12px inherit}
+  .dead h2{font-size:38px;margin:0 0 4px;letter-spacing:-1px;color:var(--coral)}
+  .stats{display:flex;justify-content:center;gap:34px;margin:18px 0 26px}
+  .stats div span{display:block;font-size:11px;color:var(--muted);letter-spacing:.5px}
+  .stats div b{font-size:30px;font-weight:800;letter-spacing:-1px}
+  @media (max-width:520px){ .board{min-width:140px;font-size:12px} .score b{font-size:28px} }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div class="hud">
+  <div class="score"><b id="len">0</b><span>uzunluk</span></div>
+  <div class="board"><h4>Sıralama</h4><div id="board"></div></div>
+  <button id="boost">Hızlan</button>
+</div>
+
+<div class="veil" id="start">
+  <div class="panel">
+    <h1 class="title">Işıkyılan</h1>
+    <p class="tag">Derin sularda büyü. Kimseye çarpma.</p>
+    <input id="name" maxlength="12" placeholder="Adın" autocomplete="off">
+    <button class="play" id="playBtn">Oyna</button>
+    <p class="keys">Fare ya da parmakla yön ver<br><kbd>boşluk</kbd> veya sol tık ile hızlan</p>
+  </div>
+</div>
+
+<div class="veil hide dead" id="over">
+  <div class="panel">
+    <h2>Yakalandın</h2>
+    <p class="tag" id="killedBy">Bir yılana çarptın.</p>
+    <div class="stats">
+      <div><span>uzunluk</span><b id="fLen">0</b></div>
+      <div><span>sıra</span><b id="fRank">-</b></div>
+      <div><span>yediğin</span><b id="fEat">0</b></div>
+    </div>
+    <button class="play" id="againBtn">Tekrar dene</button>
+  </div>
+</div>
+
+<script>
+(()=>{
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const TAU=Math.PI*2, rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[(Math.random()*a.length)|0];
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+
+/* ---------- dünya ---------- */
+const R=1500;                 // arena yarıçapı
+const PD=5;                   // yol noktası aralığı
+const SPEED=165, BOOST=300;
+const FOOD_MAX=620;
+const BOT_MAX=14;
+
+const PAL=['#4fe0c5','#ffb057','#ff6b8a','#a8ff5e','#7ad0ff','#c39bff','#ff8f5e'];
+const NAMES=['Mercan','Zargana','Vatoz','Lakerda','Kefal','Sazan','Yılanbalığı','Karides','Deniz','Fener','Sirena','Poyraz','Lodos','Kırlangıç','Mürekkep','Dalgıç','Sancak','Gırgır'];
+
+/* ön-render parlama damgaları (performans) */
+const glow={};
+for(const c of PAL){
+  const g=document.createElement('canvas');g.width=g.height=48;
+  const gx=g.getContext('2d'),grd=gx.createRadialGradient(24,24,0,24,24,24);
+  grd.addColorStop(0,c);grd.addColorStop(.25,c+'cc');grd.addColorStop(1,c+'00');
+  gx.fillStyle=grd;gx.fillRect(0,0,48,48);glow[c]=g;
+}
+
+let W=0,H=0,DPR=1;
+function resize(){
+  DPR=Math.min(devicePixelRatio||1,2);
+  W=innerWidth;H=innerHeight;
+  cv.width=W*DPR;cv.height=H*DPR;cv.style.width=W+'px';cv.style.height=H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+addEventListener('resize',resize);resize();
+
+/* ---------- durum ---------- */
+let snakes=[],foods=[],parts=[],player=null,running=false,eaten=0,shake=0;
+const cam={x:0,y:0,z:1,tz:1};
+
+function newFood(x,y,val,color){
+  const a=rnd(0,TAU),d=Math.sqrt(Math.random())*(R-30);
+  return{x:x??Math.cos(a)*d,y:y??Math.sin(a)*d,v:val??1,
+    c:color??pick(PAL),ph:rnd(0,TAU),dead:false};
+}
+function makeSnake(isPlayer,name){
+  const a=rnd(0,TAU),d=Math.sqrt(Math.random())*(R*.8);
+  const c=pick(PAL);
+  const s={bot:!isPlayer,name:name||pick(NAMES),color:c,
+    x:Math.cos(a)*d,y:Math.sin(a)*d,ang:rnd(0,TAU),tang:0,
+    mass:14,boost:false,alive:true,path:[],col:[],
+    target:null,think:0,wob:rnd(0,TAU),eatSum:0};
+  s.tang=s.ang;s.path.push({x:s.x,y:s.y});
+  return s;
+}
+const radiusOf=s=>7+Math.min(15,s.mass*.022);
+const bodyLen=s=>70+Math.min(2600,s.mass*2.1);
+
+function reset(nick){
+  snakes=[];foods=[];parts=[];eaten=0;shake=0;
+  for(let i=0;i<FOOD_MAX;i++)foods.push(newFood());
+  player=makeSnake(true,nick||'Sen');
+  player.color='#4fe0c5';
+  snakes.push(player);
+  for(let i=0;i<BOT_MAX;i++){const b=makeSnake(false);b.mass=rnd(20,260);snakes.push(b);}
+  cam.x=player.x;cam.y=player.y;cam.z=cam.tz=1;
+  running=true;
+}
+
+/* ---------- girdi ---------- */
+let aimX=0,aimY=-1,boosting=false,touching=false;
+const isTouch=matchMedia('(pointer:coarse)').matches;
+if(isTouch)document.body.classList.add('touch');
+
+addEventListener('mousemove',e=>{aimX=e.clientX-W/2;aimY=e.clientY-H/2;});
+addEventListener('mousedown',e=>{if(e.button===0)boosting=true;});
+addEventListener('mouseup',()=>boosting=false);
+addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();boosting=true;}});
+addEventListener('keyup',e=>{if(e.code==='Space')boosting=false;});
+const bBtn=document.getElementById('boost');
+const bOn=e=>{e.preventDefault();boosting=true;},bOff=()=>boosting=false;
+bBtn.addEventListener('touchstart',bOn,{passive:false});
+bBtn.addEventListener('touchend',bOff);bBtn.addEventListener('touchcancel',bOff);
+function tmove(e){
+  const t=e.touches[0];if(!t)return;
+  aimX=t.clientX-W/2;aimY=t.clientY-H/2;touching=true;
+}
+addEventListener('touchstart',e=>{if(e.target===bBtn)return;tmove(e);},{passive:true});
+addEventListener('touchmove',e=>{if(e.target===bBtn)return;tmove(e);e.preventDefault();},{passive:false});
+addEventListener('touchend',()=>{if(!event?.touches?.length)touching=false;});
+
+/* ---------- yılan mantığı ---------- */
+function angDiff(a,b){let d=(a-b)%TAU;if(d>Math.PI)d-=TAU;if(d<-Math.PI)d+=TAU;return d;}
+
+function step(s,dt){
+  const r=radiusOf(s);
+  const turn=(5.2-Math.min(2.6,r*.11))*dt;
+  s.ang+=clamp(angDiff(s.tang,s.ang),-turn,turn);
+
+  const canBoost=s.mass>22;
+  const b=s.boost&&canBoost;
+  if(b){
+    s.mass-=9*dt;
+    s.dropT=(s.dropT||0)+dt;
+    if(s.dropT>.14){
+      s.dropT=0;
+      const tail=s.path[Math.min(s.path.length-1,(bodyLen(s)/PD)|0)]||s.path[s.path.length-1];
+      foods.push(newFood(tail.x+rnd(-4,4),tail.y+rnd(-4,4),1.4,s.color));
+    }
+  }
+  const sp=(b?BOOST:SPEED)*(1-Math.min(.22,s.mass*.00006));
+  const nx=s.x+Math.cos(s.ang)*sp*dt, ny=s.y+Math.sin(s.ang)*sp*dt;
+
+  // yol: eşit aralıklı noktalar
+  let px=s.x,py=s.y,dx=nx-px,dy=ny-py,dist=Math.hypot(dx,dy);
+  const head=s.path[0];
+  let acc=Math.hypot(nx-head.x,ny-head.y);
+  if(acc>PD){
+    const steps=Math.min(8,(acc/PD)|0);
+    for(let i=1;i<=steps;i++){
+      const t=i/steps;
+      s.path.unshift({x:head.x+(nx-head.x)*t,y:head.y+(ny-head.y)*t});
+    }
+  }
+  s.x=nx;s.y=ny;
+  const maxP=Math.ceil(bodyLen(s)/PD)+3;
+  if(s.path.length>maxP)s.path.length=maxP;
+
+  // çarpışma noktaları (seyreltilmiş)
+  const k=Math.max(2,Math.round(r*.85/PD));
+  s.col.length=0;
+  for(let i=k*2;i<s.path.length;i+=k)s.col.push(s.path[i]);
+
+  // sınır
+  if(Math.hypot(s.x,s.y)>R-r){kill(s,'duvar');}
+}
+
+function eatFood(s){
+  const r=radiusOf(s)+14;
+  const cell=[];
+  for(const f of foods){
+    if(f.dead)continue;
+    const dx=f.x-s.x,dy=f.y-s.y;
+    if(dx*dx+dy*dy<r*r){
+      f.dead=true;s.mass+=f.v*2.2;s.eatSum++;
+      if(s===player){eaten++;burst(f.x,f.y,f.c,4);}
+    }
+  }
+}
+
+function kill(s,why){
+  if(!s.alive)return;
+  s.alive=false;
+  const step=Math.max(2,Math.round(radiusOf(s)*1.5/PD));
+  for(let i=0;i<s.path.length;i+=step){
+    const p=s.path[i];
+    foods.push(newFood(p.x+rnd(-6,6),p.y+rnd(-6,6),rnd(2,4.5),s.color));
+  }
+  burst(s.x,s.y,s.color,26);
+  if(s===player){shake=16;endGame(why);}
+}
+
+function burst(x,y,c,n){
+  for(let i=0;i<n;i++){
+    const a=rnd(0,TAU),sp=rnd(30,190);
+    parts.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,life:rnd(.3,.8),t:0,c,r:rnd(1.5,4)});
+  }
+}
+
+/* ---------- bot beyni ---------- */
+function think(s,dt){
+  s.think-=dt;s.wob+=dt*rnd(.5,2);
+  const dc=Math.hypot(s.x,s.y);
+
+  // duvardan kaç
+  if(dc>R*.82){
+    s.tang=Math.atan2(-s.y,-s.x)+Math.sin(s.wob)*.3;
+    s.boost=false;return;
+  }
+  // önündeki gövdelerden kaç
+  const r=radiusOf(s),look=r*6+60;
+  const fx=s.x+Math.cos(s.ang)*look, fy=s.y+Math.sin(s.ang)*look;
+  for(const o of snakes){
+    if(o===s||!o.alive)continue;
+    if(Math.hypot(o.x-s.x,o.y-s.y)>bodyLen(o)+look+90)continue;
+    for(const p of o.col){
+      const dx=p.x-fx,dy=p.y-fy;
+      if(dx*dx+dy*dy<(look*.62)*(look*.62)){
+        const away=Math.atan2(s.y-p.y,s.x-p.x);
+        s.tang=away+rnd(-.25,.25);s.boost=s.mass>60;return;
+      }
+    }
+  }
+  // yem hedefle
+  if(!s.target||s.target.dead||s.think<=0){
+    s.think=rnd(.6,1.6);
+    let best=null,bd=1e9;
+    for(let i=0;i<40;i++){
+      const f=foods[(Math.random()*foods.length)|0];
+      if(!f||f.dead)continue;
+      const d=Math.hypot(f.x-s.x,f.y-s.y)/(f.v*.8+1);
+      if(d<bd){bd=d;best=f;}
+    }
+    s.target=best;
+  }
+  if(s.target){
+    s.tang=Math.atan2(s.target.y-s.y,s.target.x-s.x)+Math.sin(s.wob)*.12;
+    s.boost=s.mass>90&&Math.hypot(s.target.x-s.x,s.target.y-s.y)>320&&Math.random()<.02?true:(s.boost&&Math.random()>.03);
+  }else s.tang=s.ang+Math.sin(s.wob)*.4;
+}
+
+/* ---------- çarpışma ---------- */
+function collide(s){
+  const r=radiusOf(s);
+  for(const o of snakes){
+    if(o===s||!o.alive)continue;
+    const gap=bodyLen(o)+r+40;
+    if(Math.hypot(o.x-s.x,o.y-s.y)>gap)continue;
+    const rr=(r+radiusOf(o)*.9)**2;
+    for(const p of o.col){
+      const dx=p.x-s.x,dy=p.y-s.y;
+      if(dx*dx+dy*dy<rr){kill(s,o.name);return;}
+    }
+  }
+}
+
+/* ---------- döngü ---------- */
+let last=performance.now();
+function frame(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(running)update(dt);
+  draw(dt);
+  requestAnimationFrame(frame);
+}
+function update(dt){
+  if(player.alive){
+    const m=Math.hypot(aimX,aimY);
+    if(m>12)player.tang=Math.atan2(aimY,aimX);
+    player.boost=boosting&&player.mass>22;
+  }
+  for(const s of snakes){
+    if(!s.alive)continue;
+    if(s.bot)think(s,dt);
+    step(s,dt);
+  }
+  for(const s of snakes){if(s.alive){eatFood(s);collide(s);}}
+
+  // ölenleri değiştir
+  snakes=snakes.filter(s=>s.alive||s===player);
+  while(snakes.length<BOT_MAX+1)snakes.push(makeSnake(false));
+
+  foods=foods.filter(f=>!f.dead);
+  while(foods.length<FOOD_MAX)foods.push(newFood());
+
+  for(const p of parts){p.t+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vx*=.94;p.vy*=.94;}
+  parts=parts.filter(p=>p.t<p.life);
+
+  // kamera
+  if(player.alive){cam.tz=clamp(1.15-player.mass*.00035,.5,1.15);}
+  cam.z+=(cam.tz-cam.z)*Math.min(1,dt*2.5);
+  cam.x+=(player.x-cam.x)*Math.min(1,dt*9);
+  cam.y+=(player.y-cam.y)*Math.min(1,dt*9);
+  if(shake>0)shake=Math.max(0,shake-dt*40);
+  hud();
+}
+
+/* ---------- çizim ---------- */
+function drawSnake(s){
+  const r=radiusOf(s),pts=s.path;
+  if(pts.length<2)return;
+  const k=Math.max(1,Math.round(r*.55/PD));
+  const maxLen=bodyLen(s);
+  ctx.lineJoin=ctx.lineCap='round';
+
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+  let count=0;
+  for(let i=k;i<pts.length&&i*PD<maxLen;i+=k){ctx.lineTo(pts[i].x,pts[i].y);count++;}
+  const tail=pts[Math.min(pts.length-1,Math.floor(maxLen/PD))];
+  if(tail)ctx.lineTo(tail.x,tail.y);
+
+  if(s.boost){ctx.strokeStyle=s.color+'33';ctx.lineWidth=r*2.9;ctx.stroke();}
+  ctx.strokeStyle=s.color;ctx.lineWidth=r*2;ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.30)';ctx.lineWidth=r*.75;ctx.stroke();
+
+  // kafa + gözler
+  const a=s.ang;
+  ctx.fillStyle=s.color;
+  ctx.beginPath();ctx.arc(s.x,s.y,r*1.05,0,TAU);ctx.fill();
+  for(const sd of[-1,1]){
+    const ex=s.x+Math.cos(a+sd*.62)*r*.62, ey=s.y+Math.sin(a+sd*.62)*r*.62;
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(ex,ey,r*.34,0,TAU);ctx.fill();
+    ctx.fillStyle='#062028';ctx.beginPath();
+    ctx.arc(ex+Math.cos(a)*r*.13,ey+Math.sin(a)*r*.13,r*.17,0,TAU);ctx.fill();
+  }
+  // isim
+  if(s.mass>60||s===player){
+    ctx.font='600 13px ui-rounded,system-ui,sans-serif';
+    ctx.textAlign='center';ctx.fillStyle='rgba(223,246,242,.5)';
+    ctx.fillText(s.name,s.x,s.y-r-10);
+  }
+}
+
+function draw(t){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle='#04161d';ctx.fillRect(0,0,W,H);
+  ctx.save();
+  const sx=shake?rnd(-shake,shake):0, sy=shake?rnd(-shake,shake):0;
+  ctx.translate(W/2+sx,H/2+sy);ctx.scale(cam.z,cam.z);ctx.translate(-cam.x,-cam.y);
+
+  const vw=W/cam.z/2+80, vh=H/cam.z/2+80;
+  const l=cam.x-vw,rt=cam.x+vw,tp=cam.y-vh,bt=cam.y+vh;
+
+  // zemin dokusu
+  const G=90;
+  ctx.fillStyle='rgba(79,224,197,.055)';
+  for(let x=Math.floor(l/G)*G;x<rt;x+=G)
+    for(let y=Math.floor(tp/G)*G;y<bt;y+=G){
+      ctx.beginPath();ctx.arc(x,y,2,0,TAU);ctx.fill();
+    }
+  // arena sınırı
+  ctx.strokeStyle='rgba(255,122,107,.55)';ctx.lineWidth=8;
+  ctx.beginPath();ctx.arc(0,0,R,0,TAU);ctx.stroke();
+  ctx.strokeStyle='rgba(255,122,107,.12)';ctx.lineWidth=40;ctx.stroke();
+
+  // yem
+  const tt=performance.now()/400;
+  for(const f of foods){
+    if(f.x<l||f.x>rt||f.y<tp||f.y>bt)continue;
+    const sz=(4+f.v*1.5)*(1+Math.sin(tt+f.ph)*.12);
+    const g=glow[f.c]||glow[PAL[0]];
+    ctx.drawImage(g,f.x-sz*2.2,f.y-sz*2.2,sz*4.4,sz*4.4);
+  }
+  // yılanlar
+  for(const s of snakes)if(s.alive&&s!==player)drawSnake(s);
+  if(player&&player.alive)drawSnake(player);
+
+  // parçacıklar
+  for(const p of parts){
+    const a=1-p.t/p.life;
+    ctx.globalAlpha=a;ctx.fillStyle=p.c;
+    ctx.beginPath();ctx.arc(p.x,p.y,p.r*a+.6,0,TAU);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  ctx.restore();
+  minimap();
+}
+
+function minimap(){
+  const m=Math.min(W,H)*.16, cx=W-m-18, cy=H-m-18-(isTouch?120:0);
+  ctx.save();
+  ctx.globalAlpha=.75;
+  ctx.beginPath();ctx.arc(cx,cy,m,0,TAU);
+  ctx.fillStyle='rgba(4,26,33,.6)';ctx.fill();
+  ctx.strokeStyle='rgba(79,224,197,.25)';ctx.lineWidth=1.5;ctx.stroke();
+  const k=m/R;
+  for(const s of snakes){
+    if(!s.alive)continue;
+    ctx.fillStyle=s===player?'#4fe0c5':'rgba(223,246,242,.45)';
+    ctx.beginPath();ctx.arc(cx+s.x*k,cy+s.y*k,s===player?3.4:2,0,TAU);ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ---------- arayüz ---------- */
+const lenEl=document.getElementById('len'),boardEl=document.getElementById('board');
+let hudT=0;
+function hud(){
+  lenEl.textContent=Math.floor(player.mass);
+  hudT++;if(hudT%6)return;
+  const list=snakes.filter(s=>s.alive).sort((a,b)=>b.mass-a.mass);
+  let html='';
+  list.slice(0,5).forEach((s,i)=>{
+    html+=`<div class="row${s===player?' me':''}"><i>${i+1}</i><em>${esc(s.name)}</em><span>${Math.floor(s.mass)}</span></div>`;
+  });
+  const rank=list.indexOf(player);
+  if(rank>4)html+=`<div class="row me"><i>${rank+1}</i><em>${esc(player.name)}</em><span>${Math.floor(player.mass)}</span></div>`;
+  boardEl.innerHTML=html;
+}
+const esc=s=>s.replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+
+const startEl=document.getElementById('start'),overEl=document.getElementById('over');
+document.getElementById('playBtn').onclick=()=>{
+  const n=(document.getElementById('name').value||'Sen').trim().slice(0,12);
+  startEl.classList.add('hide');overEl.classList.add('hide');reset(n);
+};
+document.getElementById('againBtn').onclick=()=>{
+  overEl.classList.add('hide');
+  reset(player?player.name:'Sen');
+};
+function endGame(why){
+  running=false;
+  const list=snakes.filter(s=>s.alive||s===player).sort((a,b)=>b.mass-a.mass);
+  document.getElementById('fLen').textContent=Math.floor(player.mass);
+  document.getElementById('fRank').textContent=list.indexOf(player)+1;
+  document.getElementById('fEat').textContent=eaten;
+  document.getElementById('killedBy').textContent =
+    why==='duvar' ? 'Sınıra fazla yaklaştın.' : esc(why)+' adlı yılana çarptın.';
+  setTimeout(()=>overEl.classList.remove('hide'),700);
+}
+
+reset('Sen');running=false;   // arka planda canlı sahne
+requestAnimationFrame(frame);
+setInterval(()=>{if(!running)update(1/60);},1000/60);
+})();
+</script>
+</body>
+</html>
